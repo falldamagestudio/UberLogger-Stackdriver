@@ -1,0 +1,13 @@
+- for the time being, work against the following locations:
+  Storage bucket: us
+  project config
+
+* Create a project in Google Cloud (see https://cloud.google.com/functions/docs/quickstart)
+* Enable billing (see https://cloud.google.com/functions/docs/quickstart)
+* Enable Google Cloud Functions (see https://cloud.google.com/functions/docs/quickstart)
+
+* create gcloud project config with ./commands/create_gcloud_configuration.sh 
+
+* create a Cloud Storage bucket with appropriate name
+* deploy cloud function via bucket
+
