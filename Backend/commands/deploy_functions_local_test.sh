@@ -1,0 +1,1 @@
+(cd functions && functions deploy appendToLog --trigger-http)

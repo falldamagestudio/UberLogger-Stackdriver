@@ -11,3 +11,12 @@
 * create a Cloud Storage bucket with appropriate name
 * deploy cloud function via bucket
 
+
+
+* For local dev, install the Cloud Functions emulator ( https://cloud.google.com/functions/docs/emulator )
+  - install nvm
+	follow instructions at https://github.com/creationix/nvm
+  - install & switch to nodejs 6.9.1
+	nvm install 6.9.1
+  - install cloud functions emulator
+	npm install @google-cloud/functions-emulator
