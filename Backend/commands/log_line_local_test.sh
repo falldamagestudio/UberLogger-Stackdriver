@@ -1,1 +1,0 @@
-curl -d '{"logline": "hello world"}' -H 'content-type:application/json' http://localhost:8010/unity-log-to-stackdriver/us-central1/appendToLog
