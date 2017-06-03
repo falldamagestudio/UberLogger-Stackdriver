@@ -1,0 +1,3 @@
+[submodule "Assets/External/UberLogger"]
+	path = Assets/External/UberLogger
+	url = https://github.com/Kalmalyzer/UberLogger.git
