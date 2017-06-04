@@ -13,14 +13,27 @@ public class UberLoggerStackdriver : UberLogger.ILogger {
 
     private StartCoroutineDelegate startCoroutine;
 
-    public UberLoggerStackdriver(StartCoroutineDelegate startCoroutine)
+    private readonly string backendUrl;
+
+    /// <summary>
+    /// Max number of messages included in one HTTP POST request to the backend
+    /// This setting limits the size of each individual HTTP POST request body
+    /// </summary>
+    private readonly int maxMessagesPerPost = 10;
+
+    /// <summary>
+    /// Minimum interval between the start of one HTTP POST request and the start of the next
+    /// </summary>
+    private readonly float minIntervalBetweenPosts = 1.0f;
+
+    public UberLoggerStackdriver(StartCoroutineDelegate startCoroutine, string backendUrl, int maxMessagesPerPost, float minIntervalBetweenPosts)
     {
         this.startCoroutine = startCoroutine;
-    }
+        this.backendUrl = backendUrl;
+        this.maxMessagesPerPost = maxMessagesPerPost;
+        this.minIntervalBetweenPosts = minIntervalBetweenPosts;
 
-    public void Log(LogInfo logInfo)
-    {
-        AddLogMessage(logInfo.Message);
+        Assert.IsNotNull(this.backendUrl);
     }
 
     [Serializable]
@@ -43,15 +56,16 @@ public class UberLoggerStackdriver : UberLogger.ILogger {
     private JsonableMessages jsonableMessages = new JsonableMessages();
     private JsonableMessages jsonableMessagesInFlight = new JsonableMessages();
 
-    public void AddLogMessage(string message)
+    private float previousPostTimestamp = 0.0f;
+    private bool postInProgress;
+
+    public void Log(LogInfo logInfo)
     {
-        lock(jsonableMessages)
+        lock (jsonableMessages)
         {
-            jsonableMessages.entries.Add(new JsonableMessage(message));
+            jsonableMessages.entries.Add(new JsonableMessage(logInfo.Message));
         }
     }
-
-    private bool postInProgress;
 
     /// <summary>
     /// Extract the first maxMessages messages from jsonableMessages into jsonableMessagesInFlight
@@ -117,24 +131,6 @@ public class UberLoggerStackdriver : UberLogger.ILogger {
             Debug.Log("Post failed. Error: " + request.responseCode + " " + request.downloadHandler.text); // HTTP request performed, but backend responded with an HTTP error code
     }
 
-    /// <summary>
-    /// Max number of messages included in one HTTP POST request to the backend
-    /// This setting limits the size of each individual HTTP POST request body
-    /// </summary>
-    private const int MaxMessagesPerPost = 10;
-
-    /// <summary>
-    /// Backend endpoint
-    /// </summary>
-    private const string backendUrl = "https://us-central1-unity-log-to-stackdriver.cloudfunctions.net/appendToLog";
-
-    /// <summary>
-    /// Minimum interval between the start of one HTTP POST request and the start of the next
-    /// </summary>
-    private const float minIntervalBetweenPosts = 1.0f;
-
-    private float previousPostTimestamp = 0.0f;
-
 
     public void PostMessagesIfAvailable()
     {
@@ -158,7 +154,7 @@ public class UberLoggerStackdriver : UberLogger.ILogger {
                 {
                     if (jsonableMessages.entries.Count > 0)
                     {
-                        extractJsonableMessages(jsonableMessages, jsonableMessagesInFlight, MaxMessagesPerPost);
+                        extractJsonableMessages(jsonableMessages, jsonableMessagesInFlight, maxMessagesPerPost);
                         request = createPost(jsonableMessagesInFlight, backendUrl);
                     }
                 }
