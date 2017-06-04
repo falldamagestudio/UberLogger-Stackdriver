@@ -8,26 +8,7 @@ using UnityEngine.Networking;
 
 public class PostToLog : MonoBehaviour {
 
-	// Use this for initialization
-	void Start () {
-        AddLogMessage("test");
-	}
-
-    int x = 0;
-    int y = 0;
-
-
-	// Update is called once per frame
 	void Update () {
-
-        if (x > 10)
-        {
-            x = 0;
-            y++;
-            AddLogMessage("test " + y);
-        }
-        x++;
-
         PostMessagesIfAvailable();
 	}
 
