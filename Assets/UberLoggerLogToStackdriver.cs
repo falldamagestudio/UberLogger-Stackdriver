@@ -10,11 +10,21 @@ public class UberLoggerLogToStackdriver : MonoBehaviour {
     public int MaxMessagesPerPost = 10;
     public float MinIntervalBetweenPosts = 1.0f;
 
+    public UberLoggerStackdriver.LogSeverityLevel InEditorLogLevel;
+    public UberLoggerStackdriver.LogSeverityLevel DevelopmentBuildLogLevel;
+    public UberLoggerStackdriver.LogSeverityLevel ReleaseBuildLogLevel;
+
     void Awake()
     {
         DontDestroyOnLoad(gameObject);
 
-        postToLog = new UberLoggerStackdriver((coroutine) => StartCoroutine(coroutine), BackendUrl, MaxMessagesPerPost, MinIntervalBetweenPosts);
+#if UNITY_EDITOR
+        UberLoggerStackdriver.LogSeverityLevel logSeverityLevel = InEditorLogLevel;
+#else
+        UberLoggerStackdriver.LogSeverityLevel logSeverityLevel = (Debug.isDebugBuild ? DevelopmentBuildLogLevel : ReleaseBuildLogLevel);
+#endif
+
+        postToLog = new UberLoggerStackdriver((coroutine) => StartCoroutine(coroutine), BackendUrl, MaxMessagesPerPost, MinIntervalBetweenPosts, logSeverityLevel);
         UberLogger.Logger.AddLogger(postToLog);
     }
 

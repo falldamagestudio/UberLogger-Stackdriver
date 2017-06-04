@@ -13,6 +13,14 @@ public class UberLoggerStackdriver : UberLogger.ILogger {
 
     private StartCoroutineDelegate startCoroutine;
 
+    public enum LogSeverityLevel
+    {
+        AllMessages,
+        WarningsAndErrorsOnly,
+        ErrorsOnly,
+        None
+    };
+
     private readonly string backendUrl;
 
     /// <summary>
@@ -26,12 +34,15 @@ public class UberLoggerStackdriver : UberLogger.ILogger {
     /// </summary>
     private readonly float minIntervalBetweenPosts = 1.0f;
 
-    public UberLoggerStackdriver(StartCoroutineDelegate startCoroutine, string backendUrl, int maxMessagesPerPost, float minIntervalBetweenPosts)
+    private readonly LogSeverityLevel logSeverityLevel;
+
+    public UberLoggerStackdriver(StartCoroutineDelegate startCoroutine, string backendUrl, int maxMessagesPerPost, float minIntervalBetweenPosts, LogSeverityLevel logSeverityLevel)
     {
         this.startCoroutine = startCoroutine;
         this.backendUrl = backendUrl;
         this.maxMessagesPerPost = maxMessagesPerPost;
         this.minIntervalBetweenPosts = minIntervalBetweenPosts;
+        this.logSeverityLevel = logSeverityLevel;
 
         Assert.IsNotNull(this.backendUrl);
     }
@@ -91,6 +102,18 @@ public class UberLoggerStackdriver : UberLogger.ILogger {
 
     public void Log(LogInfo logInfo)
     {
+        switch (logInfo.Severity)
+        {
+            case LogSeverity.Message:
+                if (logSeverityLevel != LogSeverityLevel.AllMessages) return; break;
+            case LogSeverity.Warning:
+                if (logSeverityLevel != LogSeverityLevel.AllMessages && logSeverityLevel != LogSeverityLevel.WarningsAndErrorsOnly) return; break;
+            case LogSeverity.Error:
+                if (logSeverityLevel != LogSeverityLevel.AllMessages && logSeverityLevel != LogSeverityLevel.WarningsAndErrorsOnly && logSeverityLevel != LogSeverityLevel.ErrorsOnly) return; break;
+            default:
+                throw new NotImplementedException();
+        }
+
         lock (stackdriverEntries)
         {
             stackdriverEntries.entries.Add(new StackdriverEntry(logInfo.Message, LogSeverityToStackdriverSeverity(logInfo.Severity), (logInfo.Callstack.Count > 0 ? new StackdriverSourceLocation(logInfo.Callstack[0]) : null)));
