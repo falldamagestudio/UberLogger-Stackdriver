@@ -9,12 +9,25 @@ public class PostToLog : MonoBehaviour {
 
 	// Use this for initialization
 	void Start () {
-
-        StartCoroutine(PostMessageToLog("hello"));
+        AddLogMessage("test");
 	}
-	
+
+    int x = 0;
+    int y = 0;
+
+
 	// Update is called once per frame
 	void Update () {
+
+        if (x > 10)
+        {
+            x = 0;
+            y++;
+            AddLogMessage("test " + y);
+        }
+        x++;
+
+        PostMessagesIfAvailable();
 	}
 
     [Serializable]
@@ -34,14 +47,23 @@ public class PostToLog : MonoBehaviour {
         }
     }
 
-    private IEnumerator PostMessageToLog(string message)
+    private JsonableMessages jsonableMessages = new JsonableMessages();
+
+    public void AddLogMessage(string message)
+    {
+        lock(jsonableMessages)
+        {
+            jsonableMessages.entries.Add(new JsonableMessage(message));
+        }
+    }
+
+    private bool postInProgress;
+
+    private static UnityWebRequest createPost(JsonableMessages jsonableMessages)
     {
         string url = "https://us-central1-unity-log-to-stackdriver.cloudfunctions.net/appendToLog";
 
-        JsonableMessages messages = new JsonableMessages();
-        messages.entries.Add(new JsonableMessage(message));
-
-        string jsonMessage = JsonUtility.ToJson(messages);
+        string jsonMessage = JsonUtility.ToJson(jsonableMessages);
         byte[] jsonMessageBytes = Encoding.UTF8.GetBytes(jsonMessage);
 
         UnityWebRequest request = UnityWebRequest.Post(url, "");
@@ -52,11 +74,40 @@ public class PostToLog : MonoBehaviour {
         request.uploadHandler = new UploadHandlerRaw(jsonMessageBytes);
         request.uploadHandler.contentType = "application/json";
 
-        yield return request.Send();
+        return request;
+    }
 
+    private static IEnumerator PostRequest(UnityWebRequest request, Action done)
+    {
+        yield return request.Send();
         if (request.isError)
             Debug.Log("Error: " + request.error);
         else
             Debug.Log("Done. Response code: " + request.responseCode + ", response: " + request.downloadHandler.text);
+
+        done();
+    }
+
+    private void PostMessagesIfAvailable()
+    {
+        if (!postInProgress)
+        {
+            UnityWebRequest request = null;
+
+            lock (jsonableMessages)
+            {
+                if (jsonableMessages.entries.Count > 0)
+                {
+                    request = createPost(jsonableMessages);
+                    jsonableMessages.entries.Clear();
+                }
+            }
+
+            if (request != null)
+            {
+                postInProgress = true;
+                StartCoroutine(PostRequest(request, () => { postInProgress = false; }));
+            }
+        }
     }
 }
