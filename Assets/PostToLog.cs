@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
+using UnityEngine.Assertions;
 using UnityEngine.Networking;
 
 public class PostToLog : MonoBehaviour {
@@ -48,6 +49,7 @@ public class PostToLog : MonoBehaviour {
     }
 
     private JsonableMessages jsonableMessages = new JsonableMessages();
+    private JsonableMessages jsonableMessagesInFlight = new JsonableMessages();
 
     public void AddLogMessage(string message)
     {
@@ -59,10 +61,22 @@ public class PostToLog : MonoBehaviour {
 
     private bool postInProgress;
 
-    private static UnityWebRequest createPost(JsonableMessages jsonableMessages)
+    /// <summary>
+    /// Extract the first maxMessages messages from jsonableMessages into jsonableMessagesInFlight
+    /// </summary>
+    private static void extractJsonableMessages(JsonableMessages jsonableMessages, JsonableMessages jsonableMessagesInFlight, int maxMessages)
     {
-        string url = "https://us-central1-unity-log-to-stackdriver.cloudfunctions.net/appendToLog";
+        Assert.AreEqual(0, jsonableMessagesInFlight.entries.Count);
+        int messageExtractCount = Math.Min(jsonableMessages.entries.Count, maxMessages);
+        jsonableMessagesInFlight.entries.AddRange(jsonableMessages.entries.GetRange(0, messageExtractCount));
+        jsonableMessages.entries.RemoveRange(0, messageExtractCount);
+    }
 
+    /// <summary>
+    /// Given a list of messages, construct a UnityWebRequest that will post these messages to the backend entry point in Google Cloud
+    /// </summary>
+    private static UnityWebRequest createPost(JsonableMessages jsonableMessages, string url)
+    {
         string jsonMessage = JsonUtility.ToJson(jsonableMessages);
         byte[] jsonMessageBytes = Encoding.UTF8.GetBytes(jsonMessage);
 
@@ -77,6 +91,9 @@ public class PostToLog : MonoBehaviour {
         return request;
     }
 
+    /// <summary>
+    /// Coroutine which posts the request to the backend, and determines success or failure
+    /// </summary>
     private static IEnumerator PostRequest(UnityWebRequest request, Action<UnityWebRequest> success, Action<UnityWebRequest> failure)
     {
         yield return request.Send();
@@ -88,18 +105,30 @@ public class PostToLog : MonoBehaviour {
 
     private void PostRequestSucceeded(UnityWebRequest request)
     {
+        // In-flight messages have been successfully transmitted. We no longer need to keep them around on the client.
+        jsonableMessagesInFlight.entries.Clear();
+
         postInProgress = false;
+
         Debug.Log("Post succeeded: " + request.responseCode + " " + request.downloadHandler.text);
     }
 
     private void PostRequestFailed(UnityWebRequest request)
     {
+        // In-flight messages failed to get transmitted. Put them back at the beginning of the list.
+        jsonableMessages.entries.InsertRange(0, jsonableMessagesInFlight.entries);
+        jsonableMessagesInFlight.entries.Clear();
+
         postInProgress = false;
+
         if (request.isError)
-            Debug.Log("Post failed. Error: " + request.error);
+            Debug.Log("Post failed. Error: " + request.error); // Unable to establish connection and perform HTTP request
         else
-            Debug.Log("Post failed. Error: " + request.responseCode + " " + request.downloadHandler.text);
+            Debug.Log("Post failed. Error: " + request.responseCode + " " + request.downloadHandler.text); // HTTP request performed, but backend responded with an HTTP error code
     }
+
+    private const int MaxMessagesPerPost = 10;
+    private const string url = "https://us-central1-unity-log-to-stackdriver.cloudfunctions.net/appendToLog";
 
     private void PostMessagesIfAvailable()
     {
@@ -111,8 +140,8 @@ public class PostToLog : MonoBehaviour {
             {
                 if (jsonableMessages.entries.Count > 0)
                 {
-                    request = createPost(jsonableMessages);
-                    jsonableMessages.entries.Clear();
+                    extractJsonableMessages(jsonableMessages, jsonableMessagesInFlight, MaxMessagesPerPost);
+                    request = createPost(jsonableMessagesInFlight, url);
                 }
             }
 
