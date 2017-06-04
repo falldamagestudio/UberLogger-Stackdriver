@@ -37,53 +37,83 @@ public class UberLoggerStackdriver : UberLogger.ILogger {
     }
 
     [Serializable]
-    public class JsonableMessages
+    public class StackdriverEntries
     {
-        public List<JsonableMessage> entries = new List<JsonableMessage>();
+        public List<StackdriverEntry> entries = new List<StackdriverEntry>();
     }
 
     [Serializable]
-    public class JsonableMessage
+    public class StackdriverEntry
     {
         public string message;
+        public int severity;
+        public StackdriverSourceLocation sourceLocation;
 
-        public JsonableMessage(string message)
+        public StackdriverEntry(string message, int severity, StackdriverSourceLocation sourceLocation)
         {
             this.message = message;
+            this.severity = severity;
+            this.sourceLocation = sourceLocation;
         }
     }
 
-    private JsonableMessages jsonableMessages = new JsonableMessages();
-    private JsonableMessages jsonableMessagesInFlight = new JsonableMessages();
+    [Serializable]
+    public class StackdriverSourceLocation
+    {
+        public string file;
+        public string line;
+        public string function;
+
+        public StackdriverSourceLocation(LogStackFrame logStackFrame)
+        {
+            file = logStackFrame.FileName;
+            line = logStackFrame.LineNumber.ToString();
+            function = logStackFrame.GetFormattedMethodName();
+        }
+    }
+
+    private StackdriverEntries stackdriverEntries = new StackdriverEntries();
+    private StackdriverEntries stackdriverEntriesInFlight = new StackdriverEntries();
 
     private float previousPostTimestamp = 0.0f;
     private bool postInProgress;
 
+    private static int LogSeverityToStackdriverSeverity(LogSeverity severity)
+    {
+        switch (severity)
+        {
+            case LogSeverity.Message: return 200;
+            case LogSeverity.Warning: return 400;
+            case LogSeverity.Error: return 500;
+            default: throw new NotImplementedException();
+        }
+    }
+
     public void Log(LogInfo logInfo)
     {
-        lock (jsonableMessages)
+        lock (stackdriverEntries)
         {
-            jsonableMessages.entries.Add(new JsonableMessage(logInfo.Message));
+            stackdriverEntries.entries.Add(new StackdriverEntry(logInfo.Message, LogSeverityToStackdriverSeverity(logInfo.Severity), (logInfo.Callstack.Count > 0 ? new StackdriverSourceLocation(logInfo.Callstack[0]) : null)));
         }
     }
 
     /// <summary>
-    /// Extract the first maxMessages messages from jsonableMessages into jsonableMessagesInFlight
+    /// Extract the first maxMessages messages from stackdriverEntries into stackdriverEntriesInFlight
     /// </summary>
-    private static void extractJsonableMessages(JsonableMessages jsonableMessages, JsonableMessages jsonableMessagesInFlight, int maxMessages)
+    private static void extractStackdriverEntries(StackdriverEntries stackdriverEntries, StackdriverEntries stackdriverEntriesInFlight, int maxMessages)
     {
-        Assert.AreEqual(0, jsonableMessagesInFlight.entries.Count);
-        int messageExtractCount = Math.Min(jsonableMessages.entries.Count, maxMessages);
-        jsonableMessagesInFlight.entries.AddRange(jsonableMessages.entries.GetRange(0, messageExtractCount));
-        jsonableMessages.entries.RemoveRange(0, messageExtractCount);
+        Assert.AreEqual(0, stackdriverEntriesInFlight.entries.Count);
+        int messageExtractCount = Math.Min(stackdriverEntries.entries.Count, maxMessages);
+        stackdriverEntriesInFlight.entries.AddRange(stackdriverEntries.entries.GetRange(0, messageExtractCount));
+        stackdriverEntries.entries.RemoveRange(0, messageExtractCount);
     }
 
     /// <summary>
     /// Given a list of messages, construct a UnityWebRequest that will post these messages to the backend entry point in Google Cloud
     /// </summary>
-    private static UnityWebRequest createPost(JsonableMessages jsonableMessages, string url)
+    private static UnityWebRequest createPost(StackdriverEntries stackdriverEntries, string url)
     {
-        string jsonMessage = JsonUtility.ToJson(jsonableMessages);
+        string jsonMessage = JsonUtility.ToJson(stackdriverEntries);
         byte[] jsonMessageBytes = Encoding.UTF8.GetBytes(jsonMessage);
 
         UnityWebRequest request = UnityWebRequest.Post(url, "");
@@ -112,7 +142,7 @@ public class UberLoggerStackdriver : UberLogger.ILogger {
     private void PostRequestSucceeded(UnityWebRequest request)
     {
         // In-flight messages have been successfully transmitted. We no longer need to keep them around on the client.
-        jsonableMessagesInFlight.entries.Clear();
+        stackdriverEntriesInFlight.entries.Clear();
 
         postInProgress = false;
     }
@@ -120,8 +150,8 @@ public class UberLoggerStackdriver : UberLogger.ILogger {
     private void PostRequestFailed(UnityWebRequest request)
     {
         // In-flight messages failed to get transmitted. Put them back at the beginning of the list.
-        jsonableMessages.entries.InsertRange(0, jsonableMessagesInFlight.entries);
-        jsonableMessagesInFlight.entries.Clear();
+        stackdriverEntries.entries.InsertRange(0, stackdriverEntriesInFlight.entries);
+        stackdriverEntriesInFlight.entries.Clear();
 
         postInProgress = false;
 
@@ -150,12 +180,12 @@ public class UberLoggerStackdriver : UberLogger.ILogger {
             {
                 UnityWebRequest request = null;
 
-                lock (jsonableMessages)
+                lock (stackdriverEntries)
                 {
-                    if (jsonableMessages.entries.Count > 0)
+                    if (stackdriverEntries.entries.Count > 0)
                     {
-                        extractJsonableMessages(jsonableMessages, jsonableMessagesInFlight, maxMessagesPerPost);
-                        request = createPost(jsonableMessagesInFlight, backendUrl);
+                        extractStackdriverEntries(stackdriverEntries, stackdriverEntriesInFlight, maxMessagesPerPost);
+                        request = createPost(stackdriverEntriesInFlight, backendUrl);
                     }
                 }
 
