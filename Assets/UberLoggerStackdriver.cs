@@ -2,15 +2,26 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Text;
+using UberLogger;
 using UnityEngine;
 using UnityEngine.Assertions;
 using UnityEngine.Networking;
 
-public class PostToLog : MonoBehaviour {
+public class UberLoggerStackdriver : UberLogger.ILogger {
 
-	void Update () {
-        PostMessagesIfAvailable();
-	}
+    public delegate Coroutine StartCoroutineDelegate(IEnumerator coroutine);
+
+    private StartCoroutineDelegate startCoroutine;
+
+    public UberLoggerStackdriver(StartCoroutineDelegate startCoroutine)
+    {
+        this.startCoroutine = startCoroutine;
+    }
+
+    public void Log(LogInfo logInfo)
+    {
+        AddLogMessage(logInfo.Message);
+    }
 
     [Serializable]
     public class JsonableMessages
@@ -90,8 +101,6 @@ public class PostToLog : MonoBehaviour {
         jsonableMessagesInFlight.entries.Clear();
 
         postInProgress = false;
-
-        Debug.Log("Post succeeded: " + request.responseCode + " " + request.downloadHandler.text);
     }
 
     private void PostRequestFailed(UnityWebRequest request)
@@ -127,7 +136,7 @@ public class PostToLog : MonoBehaviour {
     private float previousPostTimestamp = 0.0f;
 
 
-    private void PostMessagesIfAvailable()
+    public void PostMessagesIfAvailable()
     {
         if (!postInProgress)
         {
@@ -159,7 +168,7 @@ public class PostToLog : MonoBehaviour {
                     previousPostTimestamp = Time.time;
 
                     postInProgress = true;
-                    StartCoroutine(PostRequest(request, PostRequestSucceeded, PostRequestFailed));
+                    startCoroutine(PostRequest(request, PostRequestSucceeded, PostRequestFailed));
                 }
             }
         }

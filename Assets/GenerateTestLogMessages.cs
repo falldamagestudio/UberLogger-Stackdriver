@@ -7,7 +7,7 @@ public class GenerateTestLogMessages : MonoBehaviour {
     // Use this for initialization
     void Start()
     {
-        GetComponent<PostToLog>().AddLogMessage("test");
+        Debug.Log("test");
     }
 
     int x = 0;
@@ -22,7 +22,7 @@ public class GenerateTestLogMessages : MonoBehaviour {
         {
             x = 0;
             y++;
-            GetComponent<PostToLog>().AddLogMessage("test " + y);
+            Debug.Log("test " + y);
         }
         x++;
     }
