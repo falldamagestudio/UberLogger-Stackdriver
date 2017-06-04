@@ -77,15 +77,28 @@ public class PostToLog : MonoBehaviour {
         return request;
     }
 
-    private static IEnumerator PostRequest(UnityWebRequest request, Action done)
+    private static IEnumerator PostRequest(UnityWebRequest request, Action<UnityWebRequest> success, Action<UnityWebRequest> failure)
     {
         yield return request.Send();
-        if (request.isError)
-            Debug.Log("Error: " + request.error);
+        if (!request.isError && (request.responseCode >= 200 && request.responseCode < 300))
+            success(request);
         else
-            Debug.Log("Done. Response code: " + request.responseCode + ", response: " + request.downloadHandler.text);
+            failure(request);
+    }
 
-        done();
+    private void PostRequestSucceeded(UnityWebRequest request)
+    {
+        postInProgress = false;
+        Debug.Log("Post succeeded: " + request.responseCode + " " + request.downloadHandler.text);
+    }
+
+    private void PostRequestFailed(UnityWebRequest request)
+    {
+        postInProgress = false;
+        if (request.isError)
+            Debug.Log("Post failed. Error: " + request.error);
+        else
+            Debug.Log("Post failed. Error: " + request.responseCode + " " + request.downloadHandler.text);
     }
 
     private void PostMessagesIfAvailable()
@@ -106,7 +119,7 @@ public class PostToLog : MonoBehaviour {
             if (request != null)
             {
                 postInProgress = true;
-                StartCoroutine(PostRequest(request, () => { postInProgress = false; }));
+                StartCoroutine(PostRequest(request, PostRequestSucceeded, PostRequestFailed));
             }
         }
     }
