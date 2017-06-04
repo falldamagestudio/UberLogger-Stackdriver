@@ -127,28 +127,59 @@ public class PostToLog : MonoBehaviour {
             Debug.Log("Post failed. Error: " + request.responseCode + " " + request.downloadHandler.text); // HTTP request performed, but backend responded with an HTTP error code
     }
 
+    /// <summary>
+    /// Max number of messages included in one HTTP POST request to the backend
+    /// This setting limits the size of each individual HTTP POST request body
+    /// </summary>
     private const int MaxMessagesPerPost = 10;
-    private const string url = "https://us-central1-unity-log-to-stackdriver.cloudfunctions.net/appendToLog";
+
+    /// <summary>
+    /// Backend endpoint
+    /// </summary>
+    private const string backendUrl = "https://us-central1-unity-log-to-stackdriver.cloudfunctions.net/appendToLog";
+
+    /// <summary>
+    /// Minimum interval between the start of one HTTP POST request and the start of the next
+    /// </summary>
+    private const float minIntervalBetweenPosts = 1.0f;
+
+    private float previousPostTimestamp = 0.0f;
+
 
     private void PostMessagesIfAvailable()
     {
         if (!postInProgress)
         {
-            UnityWebRequest request = null;
+            bool minimumDurationExceeded;
 
-            lock (jsonableMessages)
+            if (previousPostTimestamp == 0.0f)
+                minimumDurationExceeded = true;
+            else
             {
-                if (jsonableMessages.entries.Count > 0)
-                {
-                    extractJsonableMessages(jsonableMessages, jsonableMessagesInFlight, MaxMessagesPerPost);
-                    request = createPost(jsonableMessagesInFlight, url);
-                }
+                float delta = Time.time - previousPostTimestamp;
+                minimumDurationExceeded = (delta > minIntervalBetweenPosts);
             }
 
-            if (request != null)
+            if (minimumDurationExceeded)
             {
-                postInProgress = true;
-                StartCoroutine(PostRequest(request, PostRequestSucceeded, PostRequestFailed));
+                UnityWebRequest request = null;
+
+                lock (jsonableMessages)
+                {
+                    if (jsonableMessages.entries.Count > 0)
+                    {
+                        extractJsonableMessages(jsonableMessages, jsonableMessagesInFlight, MaxMessagesPerPost);
+                        request = createPost(jsonableMessagesInFlight, backendUrl);
+                    }
+                }
+
+                if (request != null)
+                {
+                    previousPostTimestamp = Time.time;
+
+                    postInProgress = true;
+                    StartCoroutine(PostRequest(request, PostRequestSucceeded, PostRequestFailed));
+                }
             }
         }
     }
