@@ -44,7 +44,7 @@ public class UberLoggerStackdriver : UberLogger.ILogger {
         this.minIntervalBetweenPosts = minIntervalBetweenPosts;
         this.logSeverityLevel = logSeverityLevel;
 
-        Assert.IsNotNull(this.backendUrl);
+        Assert.IsNotNull(this.backendUrl, "You must supply a target URL for the UberLoggerStackdriver backend API. UberLoggerStackdriver will be inactive.");
     }
 
     [Serializable]
