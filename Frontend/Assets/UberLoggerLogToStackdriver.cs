@@ -24,14 +24,14 @@ public class UberLoggerLogToStackdriver : MonoBehaviour {
     {
         DontDestroyOnLoad(gameObject);
 
-#if UNITY_STANDALONE
-#if DEVELOPMENT_BUILD 
-        Config config = DevelopmentBuildConfig;
-#else
-        Config config = ReleaseBuildConfig;
-#endif
-#else
+#if UNITY_EDITOR
         Config config = EditorPlayModeConfig;
+#else
+    #if DEVELOPMENT_BUILD
+        Config config = DevelopmentBuildConfig;
+    #else
+        Config config = ReleaseBuildConfig;
+    #endif
 #endif
 
         postToLog = new UberLoggerStackdriver((coroutine) => StartCoroutine(coroutine), config.BackendUrl, config.MaxMessagesPerPost, config.MinIntervalBetweenPosts, config.LogSeverityLevel);
