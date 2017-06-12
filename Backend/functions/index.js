@@ -3,7 +3,7 @@
 const Logging = require('@google-cloud/logging');
 
 // Your Google Cloud Platform project ID
-const projectId = 'unity-log-to-stackdriver';
+const projectId = process.env.GCLOUD_PROJECT;
 
 // Instantiates a client
 const loggingClient = Logging({
@@ -11,7 +11,7 @@ const loggingClient = Logging({
 });
 
 // The name of the log to write to
-const logName = 'unity-log-to-stackdriver';
+const logName = process.env.GCLOUD_PROJECT;
 // Selects the log to write to
 const log = loggingClient.log(logName);
 
