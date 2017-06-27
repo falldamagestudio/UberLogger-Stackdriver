@@ -23,7 +23,9 @@ function regularEntryToStackdriverEntry (log, entry)
 
 function regularEntriesToStackdriverEntries (log, entries)
 {
-	return entries.map(entry => regularEntryToStackdriverEntry(log, entry));
+	return entries.map(function(entry) {
+			return regularEntryToStackdriverEntry(log, entry);
+		});
 }
 
 /**
@@ -42,7 +44,19 @@ exports.appendToLog = function helloHttp (req, res) {
 			// Selects the log to write to
 			var log = loggingClient.log(logName);
 
+			// Convert input json data to Stackdriver data structures
 			var stackdriverEntries = regularEntriesToStackdriverEntries(log, req.body.entries);
+	
+			// Submit log entries to Stackdriver
+			log.write(stackdriverEntries)
+				.then(() => {
+					console.log('Logged entries; ', stackdriverEntries);
+					res.status(200).send();
+				})
+				.catch((err) => {
+					console.error('ERROR:', err);
+					res.status(500).send({ error: err });
+				});
 		}
 		catch (err)
 		{
@@ -50,15 +64,6 @@ exports.appendToLog = function helloHttp (req, res) {
 			res.status(400).send({ error: 'malformed input; should be on the form of { logName: "session id", entries: [ { sessionId: "session id", message: "Entry 1 message", ... }, { sessionId: "session id", message: "Entry 2 message", ... }, ... ] }'});
 		}
 
-		log.write(stackdriverEntries)
-			.then(() => {
-				console.log('Logged entries; ', stackdriverEntries);
-				res.status(200).send();
-			})
-			.catch((err) => {
-				console.error('ERROR:', err);
-				res.status(500).send({ error: err });
-			});
 	}
 	else
 		res.status(405).send({ error: 'appendToLog only supports POST' });
