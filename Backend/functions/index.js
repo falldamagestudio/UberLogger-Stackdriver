@@ -19,7 +19,7 @@ const log = loggingClient.log(logName);
 function regularEntryToStackdriverEntry (entry)
 {
 	// The metadata associated with the entry
-	const metadata = { resource: { type: 'global' } };
+	const metadata = { resource: { type: 'global' }, sourceLocation: entry['sourceLocation'], severity: entry['severity'] };
 
 	// Prepares a log entry
 	const stackdriverEntry = log.entry(metadata, entry['message']);
