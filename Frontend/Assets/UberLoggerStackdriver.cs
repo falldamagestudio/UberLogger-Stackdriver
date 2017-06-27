@@ -36,13 +36,19 @@ public class UberLoggerStackdriver : UberLogger.ILogger {
 
     private readonly LogSeverityLevel logSeverityLevel;
 
-    public UberLoggerStackdriver(StartCoroutineDelegate startCoroutine, string backendUrl, int maxMessagesPerPost, float minIntervalBetweenPosts, LogSeverityLevel logSeverityLevel)
+    private readonly string sessionId;
+
+    public UberLoggerStackdriver(StartCoroutineDelegate startCoroutine, string backendUrl, int maxMessagesPerPost, float minIntervalBetweenPosts, LogSeverityLevel logSeverityLevel, string sessionId)
     {
         this.startCoroutine = startCoroutine;
         this.backendUrl = backendUrl;
         this.maxMessagesPerPost = maxMessagesPerPost;
         this.minIntervalBetweenPosts = minIntervalBetweenPosts;
         this.logSeverityLevel = logSeverityLevel;
+        this.sessionId = sessionId;
+
+        stackdriverEntries = new StackdriverEntries(sessionId);
+        stackdriverEntriesInFlight = new StackdriverEntries(sessionId);
 
         Assert.IsNotNull(this.backendUrl, "You must supply a target URL for the UberLoggerStackdriver backend API. UberLoggerStackdriver will be inactive.");
     }
@@ -50,18 +56,26 @@ public class UberLoggerStackdriver : UberLogger.ILogger {
     [Serializable]
     public class StackdriverEntries
     {
+        public string logName;
         public List<StackdriverEntry> entries = new List<StackdriverEntry>();
+
+        public StackdriverEntries(string logName)
+        {
+            this.logName = logName;
+        }
     }
 
     [Serializable]
     public class StackdriverEntry
     {
+        public string sessionId;
         public string message;
         public int severity;
         public StackdriverSourceLocation sourceLocation;
 
-        public StackdriverEntry(string message, int severity, StackdriverSourceLocation sourceLocation)
+        public StackdriverEntry(string sessionId, string message, int severity, StackdriverSourceLocation sourceLocation)
         {
+            this.sessionId = sessionId;
             this.message = message;
             this.severity = severity;
             this.sourceLocation = sourceLocation;
@@ -83,8 +97,8 @@ public class UberLoggerStackdriver : UberLogger.ILogger {
         }
     }
 
-    private StackdriverEntries stackdriverEntries = new StackdriverEntries();
-    private StackdriverEntries stackdriverEntriesInFlight = new StackdriverEntries();
+    private StackdriverEntries stackdriverEntries;
+    private StackdriverEntries stackdriverEntriesInFlight;
 
     private float previousPostTimestamp = 0.0f;
     private bool postInProgress;
@@ -116,7 +130,7 @@ public class UberLoggerStackdriver : UberLogger.ILogger {
 
         lock (stackdriverEntries)
         {
-            stackdriverEntries.entries.Add(new StackdriverEntry(logInfo.Message, LogSeverityToStackdriverSeverity(logInfo.Severity), (logInfo.Callstack.Count > 0 ? new StackdriverSourceLocation(logInfo.Callstack[0]) : null)));
+            stackdriverEntries.entries.Add(new StackdriverEntry(sessionId, logInfo.Message, LogSeverityToStackdriverSeverity(logInfo.Severity), (logInfo.Callstack.Count > 0 ? new StackdriverSourceLocation(logInfo.Callstack[0]) : null)));
         }
     }
 

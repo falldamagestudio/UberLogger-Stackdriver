@@ -18,6 +18,14 @@ public class UberLoggerLogToStackdriver : MonoBehaviour {
     public Config DevelopmentBuildConfig;
     public Config ReleaseBuildConfig;
 
+    /// <summary>
+    /// Generate a unique identifier for this session. Log files will be searchable/indexable by the session ID.
+    /// </summary>
+    private string GenerateSessionId()
+    {
+        return System.Guid.NewGuid().ToString();
+    }
+
     void Awake()
     {
         DontDestroyOnLoad(gameObject);
@@ -25,14 +33,16 @@ public class UberLoggerLogToStackdriver : MonoBehaviour {
 #if UNITY_EDITOR
         Config config = EditorPlayModeConfig;
 #else
-    #if DEVELOPMENT_BUILD
+#if DEVELOPMENT_BUILD
         Config config = DevelopmentBuildConfig;
-    #else
+#else
         Config config = ReleaseBuildConfig;
-    #endif
+#endif
 #endif
 
-        postToLog = new UberLoggerStackdriver((coroutine) => StartCoroutine(coroutine), config.BackendUrl, config.MaxMessagesPerPost, config.MinIntervalBetweenPosts, config.LogSeverityLevel);
+        string sessionId = GenerateSessionId();
+
+        postToLog = new UberLoggerStackdriver((coroutine) => StartCoroutine(coroutine), config.BackendUrl, config.MaxMessagesPerPost, config.MinIntervalBetweenPosts, config.LogSeverityLevel, sessionId);
         UberLogger.Logger.AddLogger(postToLog);
     }
 

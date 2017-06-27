@@ -10,13 +10,7 @@ const loggingClient = Logging({
   projectId: projectId
 });
 
-// The name of the log to write to
-const logName = process.env.GCLOUD_PROJECT;
-// Selects the log to write to
-const log = loggingClient.log(logName);
-
-
-function regularEntryToStackdriverEntry (entry)
+function regularEntryToStackdriverEntry (log, entry)
 {
 	// The metadata associated with the entry
 	const metadata = { resource: { type: 'global' }, sourceLocation: entry['sourceLocation'], severity: entry['severity'] };
@@ -27,9 +21,9 @@ function regularEntryToStackdriverEntry (entry)
 	return stackdriverEntry;
 }
 
-function regularEntriesToStackdriverEntries (entries)
+function regularEntriesToStackdriverEntries (log, entries)
 {
-	return entries.map(regularEntryToStackdriverEntry);
+	return entries.map(entry => regularEntryToStackdriverEntry(log, entry));
 }
 
 /**
@@ -43,11 +37,17 @@ exports.appendToLog = function helloHttp (req, res) {
 	{
 		try
 		{
-			var stackdriverEntries = regularEntriesToStackdriverEntries(req.body.entries);
+			// The name of the log to write to
+			const logName = req.body.logName;
+			// Selects the log to write to
+			var log = loggingClient.log(logName);
+
+			var stackdriverEntries = regularEntriesToStackdriverEntries(log, req.body.entries);
 		}
 		catch (err)
 		{
-			res.status(400).send({ error: 'malformed input; should be on the form of { entries: [ { message: "Entry 1 message", ... }, { message: "Entry 2 message", ... }, ... ] }'});
+			console.error('ERROR:', err);
+			res.status(400).send({ error: 'malformed input; should be on the form of { logName: "session id", entries: [ { sessionId: "session id", message: "Entry 1 message", ... }, { sessionId: "session id", message: "Entry 2 message", ... }, ... ] }'});
 		}
 
 		log.write(stackdriverEntries)
