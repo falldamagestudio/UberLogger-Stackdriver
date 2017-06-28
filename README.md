@@ -1,13 +1,13 @@
 # Centralized logging for Unity game clients
 
-Stream debug logs from your game clients to [Google Cloud Platform](https://cloud.google.com/). Browse and search your game client logs in the [Stackdriver Logging](https://cloud.google.com/logging/) web UI.
+Stream debug logs from your game clients to [Google Cloud Platform](https://cloud.google.com/). Browse and search your game client logs in the [Stackdriver Logging](https://cloud.google.com/logging/) web UI. See common errors with callstacks in the [Stackdriver Error Reporting](https://cloud.google.com/error-reporting/) web UI.
 
 This is primarily intended for use during internal development. If you use this in production, be aware that streaming all logs from all game clients can be costly.
 
 This consists of three parts:
 * An extension to [UberLogger](https://www.github.com/bbbscarter/UberLogger/) which regularly forwards logs from your client to Google Cloud Platform
 * A small bit of JavaScript glue code which receives logs from game clients, and forwards it to Stackdriver
-* The Stackdriver Logging web UI
+* The Stackdriver Logging & Stackdriver Error Reporting web UIs
 
 # Setup
 
@@ -26,6 +26,8 @@ This consists of three parts:
 * Test printing something (verify with [Stackdriver Logging web UI](https://console.cloud.google.com/logs))
 
 # Filtering and browsing results
+
+Visit the [Stackdriver Logging web UI](https://console.cloud.google.com/logs). Find a single line of text from the session that you are interested in. Expand the entry, and filter on the given logName. This gives you all logs for a single session.
 
 # Development
 
