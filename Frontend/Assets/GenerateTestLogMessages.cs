@@ -1,30 +1,32 @@
-﻿using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
+﻿using UnityEngine;
+using UnityEngine.Assertions;
 
 public class GenerateTestLogMessages : MonoBehaviour {
 
-    // Use this for initialization
-    void Start()
+    private int updateCount = 0;
+
+    private object nullReference = null;
+
+	void Update()
     {
-        Debug.Log("test");
+        updateCount++;
+
+        if ((updateCount % 50) == 0)
+            Debug.Log("Debug.Log: updateCount == " + updateCount);
+
+        if ((updateCount % 73) == 12)
+            Debug.LogWarning("Debug.LogWarning: updateCount == " + updateCount);
+
+        if ((updateCount % 73) == 27)
+            Debug.LogError("Debug.LogError: updateCount == " + updateCount);
+
+        if ((updateCount % 73) == 29)
+            Assert.IsTrue(false, "Assert.True failed: updateCount == " + updateCount);
+
+        if ((updateCount % 73) == 33)
+            throw new System.Exception("thrown System.Exception: updateCount == " + updateCount);
+
+        if ((updateCount % 73) == 37)
+            nullReference.GetType();    // Will throw null reference exception
     }
-
-    int x = 0;
-    int y = 0;
-
-
-    // Update is called once per frame
-    void Update()
-    {
-
-        if (x > 10)
-        {
-            x = 0;
-            y++;
-            Debug.Log("test " + y);
-        }
-        x++;
-    }
-
 }

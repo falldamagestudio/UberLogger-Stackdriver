@@ -108,6 +108,46 @@ NavMeshSettings:
     tileSize: 256
     accuratePlacement: 0
   m_NavMeshData: {fileID: 0}
+--- !u!1 &465098185
+GameObject:
+  m_ObjectHideFlags: 0
+  m_PrefabParentObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 0}
+  serializedVersion: 5
+  m_Component:
+  - component: {fileID: 465098187}
+  - component: {fileID: 465098186}
+  m_Layer: 0
+  m_Name: GenerateTestLogMessages
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &465098186
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_PrefabParentObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 0}
+  m_GameObject: {fileID: 465098185}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1c5a74a416f209847b8ced3e4a25d62d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!4 &465098187
+Transform:
+  m_ObjectHideFlags: 0
+  m_PrefabParentObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 0}
+  m_GameObject: {fileID: 465098185}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_RootOrder: 3
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1080435559
 GameObject:
   m_ObjectHideFlags: 0
@@ -116,7 +156,6 @@ GameObject:
   serializedVersion: 5
   m_Component:
   - component: {fileID: 1080435561}
-  - component: {fileID: 1080435562}
   - component: {fileID: 1080435560}
   m_Layer: 0
   m_Name: UberLoggerLogToStackdriver
@@ -141,16 +180,19 @@ MonoBehaviour:
     MaxMessagesPerPost: 10
     MinIntervalBetweenPosts: 1
     LogSeverityLevel: 0
+    IncludeCallstacks: 2
   DevelopmentBuildConfig:
     BackendUrl: https://us-central1-unity-log-to-stackdriver.cloudfunctions.net/appendToLog
     MaxMessagesPerPost: 10
     MinIntervalBetweenPosts: 1
     LogSeverityLevel: 0
+    IncludeCallstacks: 2
   ReleaseBuildConfig:
     BackendUrl: https://us-central1-unity-log-to-stackdriver.cloudfunctions.net/appendToLog
     MaxMessagesPerPost: 10
     MinIntervalBetweenPosts: 1
     LogSeverityLevel: 0
+    IncludeCallstacks: 2
 --- !u!4 &1080435561
 Transform:
   m_ObjectHideFlags: 0
@@ -164,17 +206,6 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 2
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1080435562
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_PrefabParentObject: {fileID: 0}
-  m_PrefabInternal: {fileID: 0}
-  m_GameObject: {fileID: 1080435559}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1c5a74a416f209847b8ced3e4a25d62d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!1 &1081418987
 GameObject:
   m_ObjectHideFlags: 0

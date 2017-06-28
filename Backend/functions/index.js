@@ -10,14 +10,31 @@ const loggingClient = Logging({
   projectId: projectId
 });
 
+// Convert a callstack to a multi-line text string in standard C# exception print-out format
+function callStackToText (callStack)
+{
+	callStackLines = callStack.map(function(callStackEntry) {
+		// Example:  at MyClass.MyMethod(type args) in c:\\project\\source.cs:line 27\n
+		return "        at " + callStackEntry['function'] + " in " + callStackEntry['file'] + ":line " + callStackEntry['line'] + "\n";
+	});
+	
+	callStackLine = callStackLines.join("");
+	
+	return callStackLine;
+}
+
 function regularEntryToStackdriverEntry (log, entry)
 {
 	// The metadata associated with the entry
-	const metadata = { resource: { type: 'global' }, sourceLocation: entry['sourceLocation'], severity: entry['severity'] };
+	const metadata = { resource: { type: 'cloud_function', labels: { project_id: projectId, region: '', function_name: 'uberlogger-stackdriver-client'} }, sourceLocation: entry['sourceLocation'], severity: entry['severity'] };
 
-	// Prepares a log entry
-	const stackdriverEntry = log.entry(metadata, entry['message']);
+	var messageWithCallStack = entry['message'];
 	
+	if (('callStack' in entry) && (entry['callStack'].length > 0))
+		messageWithCallStack += "\n" + callStackToText(entry['callStack']);
+
+	const stackdriverEntry = log.entry(metadata, messageWithCallStack);
+
 	return stackdriverEntry;
 }
 
@@ -39,6 +56,8 @@ exports.appendToLog = function helloHttp (req, res) {
 	{
 		try
 		{
+			//console.log("Input: ", req.body);
+			
 			// The name of the log to write to
 			const logName = req.body.logName;
 			// Selects the log to write to
@@ -50,18 +69,18 @@ exports.appendToLog = function helloHttp (req, res) {
 			// Submit log entries to Stackdriver
 			log.write(stackdriverEntries)
 				.then(() => {
-					console.log('Logged entries; ', stackdriverEntries);
+					console.log("Logged ", stackdriverEntries.length, " entries");
 					res.status(200).send();
 				})
 				.catch((err) => {
-					console.error('ERROR:', err);
+					console.error('Internal error: ', err);
 					res.status(500).send({ error: err });
 				});
 		}
 		catch (err)
 		{
-			console.error('ERROR:', err);
-			res.status(400).send({ error: 'malformed input; should be on the form of { logName: "session id", entries: [ { sessionId: "session id", message: "Entry 1 message", ... }, { sessionId: "session id", message: "Entry 2 message", ... }, ... ] }'});
+			console.error('User error: ', err);
+			res.status(400).send({ error: 'Malformed input'});
 		}
 
 	}

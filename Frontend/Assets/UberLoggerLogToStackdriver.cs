@@ -12,6 +12,7 @@ public class UberLoggerLogToStackdriver : MonoBehaviour {
         public int MaxMessagesPerPost = 10;
         public float MinIntervalBetweenPosts = 1.0f;
         public UberLoggerStackdriver.LogSeverityLevel LogSeverityLevel = UberLoggerStackdriver.LogSeverityLevel.AllMessages;
+        public UberLoggerStackdriver.IncludeCallstackMode IncludeCallstacks = UberLoggerStackdriver.IncludeCallstackMode.ErrorsOnly;
     }
 
     public Config EditorPlayModeConfig;
@@ -42,7 +43,7 @@ public class UberLoggerLogToStackdriver : MonoBehaviour {
 
         string sessionId = GenerateSessionId();
 
-        postToLog = new UberLoggerStackdriver((coroutine) => StartCoroutine(coroutine), config.BackendUrl, config.MaxMessagesPerPost, config.MinIntervalBetweenPosts, config.LogSeverityLevel, sessionId);
+        postToLog = new UberLoggerStackdriver((coroutine) => StartCoroutine(coroutine), config.BackendUrl, config.MaxMessagesPerPost, config.MinIntervalBetweenPosts, config.LogSeverityLevel, config.IncludeCallstacks, sessionId);
         UberLogger.Logger.AddLogger(postToLog);
     }
 

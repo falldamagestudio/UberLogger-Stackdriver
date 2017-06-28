@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using UberLogger;
 using UnityEngine;
@@ -21,6 +22,17 @@ public class UberLoggerStackdriver : UberLogger.ILogger {
         None
     };
 
+    /// <summary>
+    /// Which types of log messages shall include full callstacks
+    /// </summary>
+    public enum IncludeCallstackMode
+    {
+        Always,
+        WarningsAndErrorsOnly,
+        ErrorsOnly,
+        Never
+    }
+
     private readonly string backendUrl;
 
     /// <summary>
@@ -36,15 +48,18 @@ public class UberLoggerStackdriver : UberLogger.ILogger {
 
     private readonly LogSeverityLevel logSeverityLevel;
 
+    private readonly IncludeCallstackMode includeCallstacks;
+
     private readonly string sessionId;
 
-    public UberLoggerStackdriver(StartCoroutineDelegate startCoroutine, string backendUrl, int maxMessagesPerPost, float minIntervalBetweenPosts, LogSeverityLevel logSeverityLevel, string sessionId)
+    public UberLoggerStackdriver(StartCoroutineDelegate startCoroutine, string backendUrl, int maxMessagesPerPost, float minIntervalBetweenPosts, LogSeverityLevel logSeverityLevel, IncludeCallstackMode includeCallstacks, string sessionId)
     {
         this.startCoroutine = startCoroutine;
         this.backendUrl = backendUrl;
         this.maxMessagesPerPost = maxMessagesPerPost;
         this.minIntervalBetweenPosts = minIntervalBetweenPosts;
         this.logSeverityLevel = logSeverityLevel;
+        this.includeCallstacks = includeCallstacks;
         this.sessionId = sessionId;
 
         stackdriverEntries = new StackdriverEntries(sessionId);
@@ -72,13 +87,15 @@ public class UberLoggerStackdriver : UberLogger.ILogger {
         public string message;
         public int severity;
         public StackdriverSourceLocation sourceLocation;
+        public List<StackdriverSourceLocation> callStack;
 
-        public StackdriverEntry(string sessionId, string message, int severity, StackdriverSourceLocation sourceLocation)
+        public StackdriverEntry(string sessionId, string message, int severity, StackdriverSourceLocation sourceLocation, List<StackdriverSourceLocation> callStack)
         {
             this.sessionId = sessionId;
             this.message = message;
             this.severity = severity;
             this.sourceLocation = sourceLocation;
+            this.callStack = callStack;
         }
     }
 
@@ -93,7 +110,7 @@ public class UberLoggerStackdriver : UberLogger.ILogger {
         {
             file = logStackFrame.FileName;
             line = logStackFrame.LineNumber.ToString();
-            function = logStackFrame.GetFormattedMethodName();
+            function = string.Format("{0}.{1}({2})", logStackFrame.DeclaringType, logStackFrame.MethodName, logStackFrame.ParameterSig);
         }
     }
 
@@ -114,6 +131,11 @@ public class UberLoggerStackdriver : UberLogger.ILogger {
         }
     }
 
+    private List<StackdriverSourceLocation> LogCallstackToStackdriverCallstack(List<LogStackFrame> logCallstack)
+    {
+        return logCallstack.Select(logStackFrame => new StackdriverSourceLocation(logStackFrame)).ToList();
+    }
+
     public void Log(LogInfo logInfo)
     {
         switch (logInfo.Severity)
@@ -128,9 +150,23 @@ public class UberLoggerStackdriver : UberLogger.ILogger {
                 throw new NotImplementedException();
         }
 
+        bool includeCallstack;
+
+        switch (logInfo.Severity)
+        {
+            case LogSeverity.Message:
+                includeCallstack = (includeCallstacks == IncludeCallstackMode.Always); break;
+            case LogSeverity.Warning:
+                includeCallstack = (includeCallstacks == IncludeCallstackMode.Always || includeCallstacks == IncludeCallstackMode.WarningsAndErrorsOnly); break;
+            case LogSeverity.Error:
+                includeCallstack = (includeCallstacks == IncludeCallstackMode.Always || includeCallstacks == IncludeCallstackMode.WarningsAndErrorsOnly || includeCallstacks == IncludeCallstackMode.ErrorsOnly); break;
+            default:
+                throw new NotImplementedException();
+        }
+
         lock (stackdriverEntries)
         {
-            stackdriverEntries.entries.Add(new StackdriverEntry(sessionId, logInfo.Message, LogSeverityToStackdriverSeverity(logInfo.Severity), (logInfo.Callstack.Count > 0 ? new StackdriverSourceLocation(logInfo.Callstack[0]) : null)));
+            stackdriverEntries.entries.Add(new StackdriverEntry(sessionId, logInfo.Message, LogSeverityToStackdriverSeverity(logInfo.Severity), (logInfo.Callstack.Count > 0 ? new StackdriverSourceLocation(logInfo.Callstack[0]) : null), includeCallstack ? LogCallstackToStackdriverCallstack(logInfo.Callstack) : null));
         }
     }
 
