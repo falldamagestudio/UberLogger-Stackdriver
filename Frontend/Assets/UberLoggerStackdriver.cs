@@ -211,7 +211,12 @@ public class UberLoggerStackdriver : UberLogger.ILogger {
     private static IEnumerator PostRequest(UnityWebRequest request, Action<UnityWebRequest> success, Action<UnityWebRequest> failure)
     {
         yield return request.Send();
-        if (!request.isError && (request.responseCode >= 200 && request.responseCode < 300))
+#if UNITY_2017_1_OR_NEWER
+		bool requestNetworkError = request.isNetworkError;
+#else
+		bool requestNetworkError = request.isError;
+#endif
+        if (!requestNetworkError && (request.responseCode >= 200 && request.responseCode < 300))
             success(request);
         else
             failure(request);
@@ -240,7 +245,12 @@ public class UberLoggerStackdriver : UberLogger.ILogger {
 
         postInProgress = false;
 
-        if (request.isError)
+#if UNITY_2017_1_OR_NEWER
+		bool requestNetworkError = request.isNetworkError;
+#else
+		bool requestNetworkError = request.isError;
+#endif
+        if (requestNetworkError)
             Debug.Log("Post failed. Error: " + request.error); // Unable to establish connection and perform HTTP request
         else
             Debug.Log("Post failed. Error: " + request.responseCode + " " + request.downloadHandler.text); // HTTP request performed, but backend responded with an HTTP error code
