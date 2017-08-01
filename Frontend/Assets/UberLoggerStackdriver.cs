@@ -50,9 +50,11 @@ public class UberLoggerStackdriver : UberLogger.ILogger {
 
     private readonly IncludeCallstackMode includeCallstacks;
 
+    private readonly int maxRetries;
+
     private readonly string sessionId;
 
-    public UberLoggerStackdriver(StartCoroutineDelegate startCoroutine, string backendUrl, int maxMessagesPerPost, float minIntervalBetweenPosts, LogSeverityLevel logSeverityLevel, IncludeCallstackMode includeCallstacks, string sessionId)
+    public UberLoggerStackdriver(StartCoroutineDelegate startCoroutine, string backendUrl, int maxMessagesPerPost, float minIntervalBetweenPosts, LogSeverityLevel logSeverityLevel, IncludeCallstackMode includeCallstacks, int maxRetries, string sessionId)
     {
         this.startCoroutine = startCoroutine;
         this.backendUrl = backendUrl;
@@ -60,6 +62,7 @@ public class UberLoggerStackdriver : UberLogger.ILogger {
         this.minIntervalBetweenPosts = minIntervalBetweenPosts;
         this.logSeverityLevel = logSeverityLevel;
         this.includeCallstacks = includeCallstacks;
+        this.maxRetries = maxRetries;
         this.sessionId = sessionId;
 
         stackdriverEntries = new StackdriverEntries(sessionId);
@@ -119,6 +122,8 @@ public class UberLoggerStackdriver : UberLogger.ILogger {
 
     private float previousPostTimestamp = 0.0f;
     private bool postInProgress;
+
+    private int retryCounter;
 
     private static int LogSeverityToStackdriverSeverity(LogSeverity severity)
     {
@@ -214,6 +219,8 @@ public class UberLoggerStackdriver : UberLogger.ILogger {
 
     private void PostRequestSucceeded(UnityWebRequest request)
     {
+        retryCounter = 0;
+
         // In-flight messages have been successfully transmitted. We no longer need to keep them around on the client.
         stackdriverEntriesInFlight.entries.Clear();
 
@@ -222,8 +229,13 @@ public class UberLoggerStackdriver : UberLogger.ILogger {
 
     private void PostRequestFailed(UnityWebRequest request)
     {
-        // In-flight messages failed to get transmitted. Put them back at the beginning of the list.
-        stackdriverEntries.entries.InsertRange(0, stackdriverEntriesInFlight.entries);
+        if (retryCounter < maxRetries)
+        {
+            retryCounter++;
+            // In-flight messages failed to get transmitted. Put them back at the beginning of the list
+            stackdriverEntries.entries.InsertRange(0, stackdriverEntriesInFlight.entries);
+        }
+
         stackdriverEntriesInFlight.entries.Clear();
 
         postInProgress = false;
