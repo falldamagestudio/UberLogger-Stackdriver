@@ -15,10 +15,11 @@ This consists of three parts:
 * Enable billing for the project (see https://cloud.google.com/functions/docs/quickstart)
 * Enable Google Cloud Functions API (see https://cloud.google.com/functions/docs/quickstart)
 
+* Install Google Cloud SDK (see https://cloud.google.com/sdk/)
+
 * Create a gcloud project config with `./commands/create_gcloud_configuration.sh <configuration name> <project name>`
-* Create a Cloud Storage bucket with appropriate name via `./commands/create_storage_bucket.sh <project name>`
-* Deploy cloud function via `./commands/deploy_functions.sh <project name>` - note down the endpoint URL
-* Test posting something to the endpoint via `./commands/log_lines.sh <endpoint URL>` (verify with [Stackdriver Logging web UI](https://console.cloud.google.com/logs))
+* Create a Cloud Storage bucket with appropriate name via `./commands/create_storage_bucket.sh <project name>` - note down the storage bucket URL
+* Deploy cloud function via `./commands/deploy_functions.sh <storage bucket URL>` - note down the endpoint URL
 
 * Add the Frontend/Assets/* files to your Unity project
 * Add a UberLoggerLogToStackdriver component to your project
@@ -28,6 +29,8 @@ This consists of three parts:
 # Filtering and browsing results
 
 Visit the [Stackdriver Logging web UI](https://console.cloud.google.com/logs). Find a single line of text from the session that you are interested in. Expand the entry, and filter on the given logName. This gives you all logs for a single session.
+
+Visit the [Stackdriver Error Reporting web UI](https://console.cloud.google.com/errors). Here you can see statistics for the errors reported by your application.
 
 # Reliability, performance and scalability
 
@@ -49,11 +52,9 @@ Each game client is by default configured to post any messages once every second
 # Development
 
 * For local dev, install the Cloud Functions emulator ( https://cloud.google.com/functions/docs/emulator )
-  - install nvm
-	follow instructions at https://github.com/creationix/nvm
-  - install & switch to nodejs 6.9.1
-	nvm install 6.9.1
-  - install cloud functions emulator
-	npm install @google-cloud/functions-emulator
-  - Deploy scripts to cloud functions emulator via `./commands/deploy_functions_local_test.sh`
-  - Post example lines to cloud functions emulator via `./commands/log_lines_local_test.sh`
+  - install nvm: follow instructions at https://github.com/creationix/nvm
+  - install & switch to nodejs 6.11.1 via `nvm install 6.11.1` / `nvm use 6.11.1`
+  - install cloud functions emulator via `npm install @google-cloud/functions-emulator`
+  - Deploy scripts to cloud functions emulator via `./commands/deploy_functions_local_emulator.sh`
+  - Run unit tests against cloud functions emulator & Stackdriver backend via `./commands/run_unit_tests_local_emulator.sh`
+  - Deploy to Cloud Functions via `./commands/deploy_functions.sh <storage bucket URL>`
