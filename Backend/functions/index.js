@@ -30,7 +30,7 @@ function regularEntryToStackdriverEntry (log, entry)
 
 	var messageWithCallStack = entry['message'];
 	
-	if (('callStack' in entry) && (entry['callStack'].length > 0))
+	if (('callStack' in entry) && entry['callStack'] && (entry['callStack'].length > 0))
 		messageWithCallStack += "\n" + callStackToText(entry['callStack']);
 
 	const stackdriverEntry = log.entry(metadata, messageWithCallStack);

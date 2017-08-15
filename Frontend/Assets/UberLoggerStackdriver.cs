@@ -71,8 +71,55 @@ public class UberLoggerStackdriver : UberLogger.ILogger {
         Assert.IsNotNull(this.backendUrl, "You must supply a target URL for the UberLoggerStackdriver backend API. UberLoggerStackdriver will be inactive.");
     }
 
-    [Serializable]
-    public class StackdriverEntries
+    /// <summary>
+    /// All jsonable objects in this project will derive from this interface
+    /// </summary>
+    public interface ToJson
+    {
+        /// <summary>
+        /// Converts the object to a json string representation
+        /// </summary>
+        string ToJson();
+    }
+
+    /// <summary>
+    /// Convert a list of jsonable objects into a JSON string on the format of "[ object1, object2, object3, ..., objectN ]"
+    /// </summary>
+    public static string ListToJson<T>(List<T> items) where T : ToJson
+    {
+        string str = "[ ";
+
+        for (int i = 0; i < items.Count; i++)
+        {
+            str += items[i].ToJson();
+            if (i + 1 != items.Count)
+                str += ", ";
+        }
+
+        str += " ]";
+        return str;
+    }
+
+    /// <summary>
+    /// Convert a string to JSON-compatible format (escape critical characters with leading backslashes)
+    /// </summary>
+    public static string StringToJson(string inputString)
+    {
+        string str = "";
+        foreach (char c in inputString)
+            if (c == '\\')
+                str += "\\\\";
+            else if (c == '"')
+                str += "\"";
+            else if ((int)c < 0x20)
+                str += "\\" + c;
+            else
+                str += c;
+
+        return str;
+    }
+
+    public class StackdriverEntries : ToJson
     {
         public string logName;
         public List<StackdriverEntry> entries = new List<StackdriverEntry>();
@@ -81,10 +128,14 @@ public class UberLoggerStackdriver : UberLogger.ILogger {
         {
             this.logName = logName;
         }
+
+        public string ToJson()
+        {
+            return string.Format("{{ \"logName\": \"{0}\", \"entries\": {1} }}", StringToJson(logName), ListToJson(entries));
+        }
     }
 
-    [Serializable]
-    public class StackdriverEntry
+    public class StackdriverEntry : ToJson
     {
         public string sessionId;
         public string message;
@@ -100,20 +151,30 @@ public class UberLoggerStackdriver : UberLogger.ILogger {
             this.sourceLocation = sourceLocation;
             this.callStack = callStack;
         }
+
+        public string ToJson()
+        {
+            return string.Format("{{ \"sessionId\": \"{0}\", \"message\": \"{1}\", \"severity\": {2}, \"sourceLocation\": {3}, \"callStack\": {4} }}",
+                StringToJson(sessionId), StringToJson(message), severity, (sourceLocation != null) ? sourceLocation.ToJson() : "null", (callStack != null) ? ListToJson(callStack) : "null");
+        }
     }
 
-    [Serializable]
-    public class StackdriverSourceLocation
+    public class StackdriverSourceLocation : ToJson
     {
-        public string file;
-        public string line;
-        public string function;
+        public readonly string file;
+        public readonly string line;
+        public readonly string function;
 
         public StackdriverSourceLocation(LogStackFrame logStackFrame)
         {
             file = logStackFrame.FileName;
             line = logStackFrame.LineNumber.ToString();
             function = string.Format("{0}.{1}({2})", logStackFrame.DeclaringType, logStackFrame.MethodName, logStackFrame.ParameterSig);
+        }
+
+        public string ToJson()
+        {
+            return string.Format("{{ \"file\": \"{0}\", \"line\": \"{1}\", \"function\": \"{2}\" }}", StringToJson(file), StringToJson(line), StringToJson(function));
         }
     }
 
@@ -191,7 +252,7 @@ public class UberLoggerStackdriver : UberLogger.ILogger {
     /// </summary>
     private static UnityWebRequest createPost(StackdriverEntries stackdriverEntries, string url)
     {
-        string jsonMessage = JsonUtility.ToJson(stackdriverEntries);
+        string jsonMessage = stackdriverEntries.ToJson();
         byte[] jsonMessageBytes = Encoding.UTF8.GetBytes(jsonMessage);
 
         UnityWebRequest request = UnityWebRequest.Post(url, "");
