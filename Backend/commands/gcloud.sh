@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# Locate & return appropriate 'gcloud' command
+
 set -eu
 
 # The Docker Bash terminal under Windows will not match 'gcloud' against 'gcloud.cmd'. Therefore we will try both gcloud and gcloud.cmd. 

@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# Locate & return appropriate 'gsutil' command
+
 set -eu
 
 # The Docker Bash terminal under Windows will not match 'gsutil' against 'gsutil.cmd'. Therefore we will try both gsutil and gsutil.cmd. 

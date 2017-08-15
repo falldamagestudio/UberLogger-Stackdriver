@@ -1,5 +1,9 @@
 #!/bin/sh 
 
+# Create a storage bucket
+# We will deploy our script code to this bucket
+# The Cloud Functions infrastructure will fetch script code from this bucket whenever it is to be deployed to Google's own servers and run
+
 # multi-regional bucket location hardcoded to match the hardcoded Cloud Functions location
 # Bucket location taken from https://cloud.google.com/storage/docs/bucket-locations
 

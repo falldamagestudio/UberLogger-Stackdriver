@@ -1,3 +1,6 @@
+
+# Obsolete, broken
+
 if [ "$#" -lt 1 ]; then
   echo "Usage: log_lines.sh <Google Cloud Function endpoint>"
   exit 1

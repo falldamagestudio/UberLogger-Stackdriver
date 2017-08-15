@@ -1,5 +1,7 @@
 #!/bin/sh
 
+# Create a Google Cloud project configuration
+
 # Reference: https://chengl.com/working-with-multiple-projects-on-gke/
 
 # Hardcoded region & zone to us-central1-a since currently (2017-06-07) Google Cloud Functions give
