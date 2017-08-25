@@ -105,16 +105,33 @@ public class UberLoggerStackdriver : UberLogger.ILogger {
     /// </summary>
     public static string StringToJson(string inputString)
     {
-        string str = "";
+        // Escaping for some common control characters, quote & reverse solidus
+        // These can also be escaped as unicode hex strings ("\uXXXX") but this
+        //  format is easier for humans to parse
+        Dictionary<char, string> charactersToEscape = new Dictionary<char, string>
+            {
+                { '\\', "\\\\" },
+                { '\"', "\\\"" },
+                // { '/', "\\/" }, // Forward solidus can be escaped, but is not necessary
+                { '\b', "\\b" },
+                { '\f', "\\f" },
+                { '\n', "\\n" },
+                { '\r', "\\r" },
+                { '\t', "\\t" },
+            };
+
+
+        string str = "\"";
+
         foreach (char c in inputString)
-            if (c == '\\')
-                str += "\\\\";
-            else if (c == '"')
-                str += "\"";
-            else if ((int)c < 0x20)
-                str += "\\" + c;
-            else
+            if (charactersToEscape.ContainsKey(c)) // Encode some common characters with their short escaped-character forms
+                str += charactersToEscape[c];
+            else if ((int) c < 0x20) // Encode all control chars in U+0000 through U+001F with "\uXXXX" notation
+                str += "\\u" + ((int)c).ToString("X4");
+            else // Keep remaining characters verbatim
                 str += c;
+
+        str += "\"";
 
         return str;
     }
@@ -131,7 +148,7 @@ public class UberLoggerStackdriver : UberLogger.ILogger {
 
         public string ToJson()
         {
-            return string.Format("{{ \"logName\": \"{0}\", \"entries\": {1} }}", StringToJson(logName), ListToJson(entries));
+            return string.Format("{{ \"logName\": {0}, \"entries\": {1} }}", StringToJson(logName), ListToJson(entries));
         }
     }
 
@@ -154,7 +171,7 @@ public class UberLoggerStackdriver : UberLogger.ILogger {
 
         public string ToJson()
         {
-            return string.Format("{{ \"sessionId\": \"{0}\", \"message\": \"{1}\", \"severity\": {2}, \"sourceLocation\": {3}, \"callStack\": {4} }}",
+            return string.Format("{{ \"sessionId\": {0}, \"message\": {1}, \"severity\": {2}, \"sourceLocation\": {3}, \"callStack\": {4} }}",
                 StringToJson(sessionId), StringToJson(message), severity, (sourceLocation != null) ? sourceLocation.ToJson() : "null", (callStack != null) ? ListToJson(callStack) : "null");
         }
     }
@@ -174,7 +191,7 @@ public class UberLoggerStackdriver : UberLogger.ILogger {
 
         public string ToJson()
         {
-            return string.Format("{{ \"file\": \"{0}\", \"line\": \"{1}\", \"function\": \"{2}\" }}", StringToJson(file), StringToJson(line), StringToJson(function));
+            return string.Format("{{ \"file\": {0}, \"line\": {1}, \"function\": {2} }}", StringToJson(file), StringToJson(line), StringToJson(function));
         }
     }
 
