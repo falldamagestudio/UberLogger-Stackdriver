@@ -28,5 +28,9 @@ public class GenerateTestLogMessages : MonoBehaviour {
 
         if ((updateCount % 73) == 37)
             nullReference.GetType();    // Will throw null reference exception
+
+        if ((updateCount % 73) == 45)
+            Debug.Log("Debug.Log: String with special characters in it: START - \n\"{], - END");
+
     }
 }
