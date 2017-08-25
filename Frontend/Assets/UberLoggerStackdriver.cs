@@ -42,6 +42,13 @@ public class UberLoggerStackdriver : UberLogger.ILogger {
     private readonly int maxMessagesPerPost = 10;
 
     /// <summary>
+    /// Max number of failed attempts posting to the backend; when max fails have been reached without
+    ///   any successful posts in-between, UberLoggerStackdriver will stop logging altogether
+    /// This setting limits the size of each individual HTTP POST request body
+    /// </summary>
+    private readonly int maxFailuresUntilShutDown = 20;
+
+    /// <summary>
     /// Minimum interval between the start of one HTTP POST request and the start of the next
     /// </summary>
     private readonly float minIntervalBetweenPosts = 1.0f;
@@ -195,6 +202,8 @@ public class UberLoggerStackdriver : UberLogger.ILogger {
         }
     }
 
+    private bool active = true;
+
     private StackdriverEntries stackdriverEntries;
     private StackdriverEntries stackdriverEntriesInFlight;
 
@@ -202,6 +211,8 @@ public class UberLoggerStackdriver : UberLogger.ILogger {
     private bool postInProgress;
 
     private int retryCounter;
+
+    private int failuresSinceLastSuccessfulPost;
 
     private static int LogSeverityToStackdriverSeverity(LogSeverity severity)
     {
@@ -221,35 +232,38 @@ public class UberLoggerStackdriver : UberLogger.ILogger {
 
     public void Log(LogInfo logInfo)
     {
-        switch (logInfo.Severity)
+        if (active)
         {
-            case LogSeverity.Message:
-                if (logSeverityLevel != LogSeverityLevel.AllMessages) return; break;
-            case LogSeverity.Warning:
-                if (logSeverityLevel != LogSeverityLevel.AllMessages && logSeverityLevel != LogSeverityLevel.WarningsAndErrorsOnly) return; break;
-            case LogSeverity.Error:
-                if (logSeverityLevel != LogSeverityLevel.AllMessages && logSeverityLevel != LogSeverityLevel.WarningsAndErrorsOnly && logSeverityLevel != LogSeverityLevel.ErrorsOnly) return; break;
-            default:
-                throw new NotImplementedException();
-        }
+            switch (logInfo.Severity)
+            {
+                case LogSeverity.Message:
+                    if (logSeverityLevel != LogSeverityLevel.AllMessages) return; break;
+                case LogSeverity.Warning:
+                    if (logSeverityLevel != LogSeverityLevel.AllMessages && logSeverityLevel != LogSeverityLevel.WarningsAndErrorsOnly) return; break;
+                case LogSeverity.Error:
+                    if (logSeverityLevel != LogSeverityLevel.AllMessages && logSeverityLevel != LogSeverityLevel.WarningsAndErrorsOnly && logSeverityLevel != LogSeverityLevel.ErrorsOnly) return; break;
+                default:
+                    throw new NotImplementedException();
+            }
 
-        bool includeCallstack;
+            bool includeCallstack;
 
-        switch (logInfo.Severity)
-        {
-            case LogSeverity.Message:
-                includeCallstack = (includeCallstacks == IncludeCallstackMode.Always); break;
-            case LogSeverity.Warning:
-                includeCallstack = (includeCallstacks == IncludeCallstackMode.Always || includeCallstacks == IncludeCallstackMode.WarningsAndErrorsOnly); break;
-            case LogSeverity.Error:
-                includeCallstack = (includeCallstacks == IncludeCallstackMode.Always || includeCallstacks == IncludeCallstackMode.WarningsAndErrorsOnly || includeCallstacks == IncludeCallstackMode.ErrorsOnly); break;
-            default:
-                throw new NotImplementedException();
-        }
+            switch (logInfo.Severity)
+            {
+                case LogSeverity.Message:
+                    includeCallstack = (includeCallstacks == IncludeCallstackMode.Always); break;
+                case LogSeverity.Warning:
+                    includeCallstack = (includeCallstacks == IncludeCallstackMode.Always || includeCallstacks == IncludeCallstackMode.WarningsAndErrorsOnly); break;
+                case LogSeverity.Error:
+                    includeCallstack = (includeCallstacks == IncludeCallstackMode.Always || includeCallstacks == IncludeCallstackMode.WarningsAndErrorsOnly || includeCallstacks == IncludeCallstackMode.ErrorsOnly); break;
+                default:
+                    throw new NotImplementedException();
+            }
 
-        lock (stackdriverEntries)
-        {
-            stackdriverEntries.entries.Add(new StackdriverEntry(sessionId, logInfo.Message, LogSeverityToStackdriverSeverity(logInfo.Severity), (logInfo.Callstack.Count > 0 ? new StackdriverSourceLocation(logInfo.Callstack[0]) : null), includeCallstack ? LogCallstackToStackdriverCallstack(logInfo.Callstack) : null));
+            lock (stackdriverEntries)
+            {
+                stackdriverEntries.entries.Add(new StackdriverEntry(sessionId, logInfo.Message, LogSeverityToStackdriverSeverity(logInfo.Severity), (logInfo.Callstack.Count > 0 ? new StackdriverSourceLocation(logInfo.Callstack[0]) : null), includeCallstack ? LogCallstackToStackdriverCallstack(logInfo.Callstack) : null));
+            }
         }
     }
 
@@ -302,39 +316,74 @@ public class UberLoggerStackdriver : UberLogger.ILogger {
 
     private void PostRequestSucceeded(UnityWebRequest request)
     {
+        failuresSinceLastSuccessfulPost = 0;
+
         retryCounter = 0;
 
-        // In-flight messages have been successfully transmitted. We no longer need to keep them around on the client.
-        stackdriverEntriesInFlight.entries.Clear();
+        lock (stackdriverEntries)
+        {
+            // In-flight messages have been successfully transmitted. We no longer need to keep them around on the client.
+            stackdriverEntriesInFlight.entries.Clear();
+        }
 
         postInProgress = false;
     }
 
     private void PostRequestFailed(UnityWebRequest request)
     {
-        if (retryCounter < maxRetries)
+        failuresSinceLastSuccessfulPost++;
+
+        if (failuresSinceLastSuccessfulPost >= maxFailuresUntilShutDown)
         {
-            retryCounter++;
-            // In-flight messages failed to get transmitted. Put them back at the beginning of the list
-            stackdriverEntries.entries.InsertRange(0, stackdriverEntriesInFlight.entries);
+            ShutDown();
+            postInProgress = false;
         }
+        else
+        {
+            lock (stackdriverEntries)
+            {
 
-        stackdriverEntriesInFlight.entries.Clear();
+                if (retryCounter < maxRetries)
+                {
+                    retryCounter++;
+                    // In-flight messages failed to get transmitted. Put them back at the beginning of the list
+                    stackdriverEntries.entries.InsertRange(0, stackdriverEntriesInFlight.entries);
+                }
 
-        postInProgress = false;
+                stackdriverEntriesInFlight.entries.Clear();
+            }
+
+            postInProgress = false;
 
 #if UNITY_2017_1_OR_NEWER
-		bool requestNetworkError = request.isNetworkError;
+		    bool requestNetworkError = request.isNetworkError;
 #else
-		bool requestNetworkError = request.isError;
+            bool requestNetworkError = request.isError;
 #endif
-        if (requestNetworkError)
-            Debug.Log("Post failed. Error: " + request.error); // Unable to establish connection and perform HTTP request
-        else
-            Debug.Log("Post failed. Error: " + request.responseCode + " " + request.downloadHandler.text); // HTTP request performed, but backend responded with an HTTP error code
+            if (requestNetworkError)
+                Debug.LogWarning("Post failed. Error: " + request.error); // Unable to establish connection and perform HTTP request
+            else
+                Debug.LogWarning("Post failed. Error: " + request.responseCode + " " + request.downloadHandler.text); // HTTP request performed, but backend responded with an HTTP error code
+        }
     }
 
+    /// <summary>
+    /// Stop all further logging activity to Stackdriver. Clear list of messages in-flight. Cease to queue up new messages.
+    /// </summary>
+    private void ShutDown()
+    {
+        active = false;
+        lock (stackdriverEntries)
+        {
+            stackdriverEntries.entries.Clear();
+            stackdriverEntriesInFlight.entries.Clear();
+        }
+        Debug.LogWarning("Too many errors when talking to backend. UberLoggerStackDriver shutting down.");
+    }
 
+    /// <summary>
+    /// Update mechanism for UberLoggerStackdriver. This should be called several times per second.
+    /// </summary>
     public void PostMessagesIfAvailable()
     {
         if (!postInProgress)
