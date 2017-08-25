@@ -202,6 +202,11 @@ public class UberLoggerStackdriver : UberLogger.ILogger {
         }
     }
 
+    /// <summary>
+    /// Use this channel for any internal logging calls to UberDebug.Log*()
+    /// </summary>
+    private string StackdriverChannel = "Stackdriver";
+
     private bool active = true;
 
     private StackdriverEntries stackdriverEntries;
@@ -316,7 +321,11 @@ public class UberLoggerStackdriver : UberLogger.ILogger {
 
     private void PostRequestSucceeded(UnityWebRequest request)
     {
-        failuresSinceLastSuccessfulPost = 0;
+        if (failuresSinceLastSuccessfulPost != 0)
+        {
+            UberDebug.LogChannel(StackdriverChannel, "HTTP Post to backend API successful, following previous failure(s).");
+            failuresSinceLastSuccessfulPost = 0;
+        }
 
         retryCounter = 0;
 
@@ -336,6 +345,7 @@ public class UberLoggerStackdriver : UberLogger.ILogger {
         if (failuresSinceLastSuccessfulPost >= maxFailuresUntilShutDown)
         {
             ShutDown();
+            UberDebug.LogWarningChannel(StackdriverChannel, "Too many errors when talking to backend. UberLoggerStackdriver will shut down for the rest of the session.");
             postInProgress = false;
         }
         else
@@ -361,9 +371,9 @@ public class UberLoggerStackdriver : UberLogger.ILogger {
             bool requestNetworkError = request.isError;
 #endif
             if (requestNetworkError)
-                Debug.LogWarning("Post failed. Error: " + request.error); // Unable to establish connection and perform HTTP request
+                UberDebug.LogWarningChannel(StackdriverChannel, "HTTP post to backend API failed. Unable to perform HTTP request. Error: " + request.error); // Unable to establish connection and perform HTTP request
             else
-                Debug.LogWarning("Post failed. Error: " + request.responseCode + " " + request.downloadHandler.text); // HTTP request performed, but backend responded with an HTTP error code
+                UberDebug.LogWarningChannel(StackdriverChannel, "HTTP post to backend API failed. Backend API responded with an error. HTTP error code: " + request.responseCode + " Message: " + request.downloadHandler.text); // HTTP request performed, but backend responded with an HTTP error code
         }
     }
 
@@ -378,7 +388,6 @@ public class UberLoggerStackdriver : UberLogger.ILogger {
             stackdriverEntries.entries.Clear();
             stackdriverEntriesInFlight.entries.Clear();
         }
-        Debug.LogWarning("Too many errors when talking to backend. UberLoggerStackDriver shutting down.");
     }
 
     /// <summary>
