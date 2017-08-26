@@ -49,7 +49,7 @@ If a game client spams log messages at a high rate, it will result in rate limit
 
 ## Scalability
 
-Each game client is by default configured to post any messages once every second. The Cloud Function takes 300ms to execute in the average case. Cloud Functions have [a quota](https://cloud.google.com/functions/quotas) of max 400c concurrent invocations. Stackdriver Logging has [a quota](https://cloud.google.com/logging/quota-policy) of max 500 write calls per second. The bottleneck is therefore with 500 concurrent clients spamming messages to the system non-stop, or with 150.000 concurrent clients that encounter errors once every 5 minutes.
+Each game client is by default configured to post any messages once every second. The Cloud Function takes 300ms to execute in the average case. Cloud Functions have [a quota](https://cloud.google.com/functions/quotas) of max 400c concurrent invocations. Stackdriver Logging has [a quota](https://cloud.google.com/logging/quota-policy) of max 500 write calls per second. The bottleneck is therefore with 500 concurrent clients spamming messages to the system non-stop, or with 150.000 concurrent clients that send messages (probably errors) once every 5 minutes.
 
 # Development
 
