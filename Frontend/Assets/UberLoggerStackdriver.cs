@@ -205,7 +205,7 @@ public class UberLoggerStackdriver : UberLogger.ILogger {
     /// <summary>
     /// Use this channel for any internal logging calls to UberDebug.Log*()
     /// </summary>
-    private string StackdriverChannel = "Stackdriver";
+    private static string StackdriverChannel = "Stackdriver";
 
     private bool active = true;
 
@@ -277,7 +277,12 @@ public class UberLoggerStackdriver : UberLogger.ILogger {
     /// </summary>
     private static void extractStackdriverEntries(StackdriverEntries stackdriverEntries, StackdriverEntries stackdriverEntriesInFlight, int maxMessages)
     {
-        Assert.AreEqual(0, stackdriverEntriesInFlight.entries.Count);
+        if (stackdriverEntriesInFlight.entries.Count > 0)
+        {
+            UberDebug.LogErrorChannel(StackdriverChannel, "Attempted to extract a new set of messages while the previous set already was in-flight");
+            stackdriverEntriesInFlight.entries.Clear();
+        }
+
         int messageExtractCount = Math.Min(stackdriverEntries.entries.Count, maxMessages);
         stackdriverEntriesInFlight.entries.AddRange(stackdriverEntries.entries.GetRange(0, messageExtractCount));
         stackdriverEntries.entries.RemoveRange(0, messageExtractCount);
