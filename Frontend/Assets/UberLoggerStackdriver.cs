@@ -198,7 +198,7 @@ public class UberLoggerStackdriver : UberLogger.ILogger {
 
         public string ToJson()
         {
-            return string.Format("{{ \"file\": {0}, \"line\": {1}, \"function\": {2} }}", StringToJson(file), StringToJson(line), StringToJson(function));
+            return string.Format("{{ \"file\": {0}, \"line\": {1}, \"function\": {2} }}", StringToJson((file != null) ? file : "(unknown file)"), StringToJson(line), StringToJson(function));
         }
     }
 
